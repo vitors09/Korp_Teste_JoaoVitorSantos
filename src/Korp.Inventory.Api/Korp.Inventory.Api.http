@@ -1,0 +1,32 @@
+@host = http://localhost:5298
+
+### Cadastrar produto
+POST {{host}}/api/products
+Content-Type: application/json
+
+{
+  "code": "PROD-001",
+  "description": "Teclado mecânico",
+  "balance": 10
+}
+
+### Listar produtos
+GET {{host}}/api/products
+Accept: application/json
+
+### Consultar produto - substitua pelo ID retornado no cadastro
+GET {{host}}/api/products/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+### Efetuar baixa - substitua productId pelo ID retornado no cadastro
+POST {{host}}/api/stock/debits
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "productId": "00000000-0000-0000-0000-000000000000",
+      "quantity": 2
+    }
+  ]
+}

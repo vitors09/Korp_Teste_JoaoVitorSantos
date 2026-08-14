@@ -1,0 +1,9 @@
+@BillingUrl = http://localhost:5299
+
+GET {{BillingUrl}}/api/invoices
+Accept: application/json
+
+###
+
+GET {{BillingUrl}}/api/system/health
+Accept: application/json

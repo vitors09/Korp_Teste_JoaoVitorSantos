@@ -1,0 +1,238 @@
+<header class="topbar no-print">
+  <div class="brand">
+    <span class="brand-mark">K</span>
+    <div>
+      <strong>Korp Fiscal</strong>
+      <small>Emissão de notas fiscais</small>
+    </div>
+  </div>
+  <div class="service-state" [class.failure]="failureSimulationEnabled">
+    <span class="state-dot"></span>
+    Estoque {{ failureSimulationEnabled ? 'indisponível' : 'operacional' }}
+  </div>
+</header>
+
+<main class="page no-print">
+  <section class="hero">
+    <div>
+      <span class="eyebrow">PAINEL OPERACIONAL</span>
+      <h1>Produtos e notas em um só fluxo.</h1>
+      <p>Cadastre o estoque, monte uma nota e faça a baixa com segurança.</p>
+    </div>
+    <button
+      class="failure-button"
+      type="button"
+      [class.active]="failureSimulationEnabled"
+      [disabled]="togglingFailure"
+      (click)="toggleFailureSimulation()">
+      {{ togglingFailure ? 'Alterando...' : failureSimulationEnabled ? 'Recuperar estoque' : 'Simular falha' }}
+    </button>
+  </section>
+
+  <div class="feedback success" *ngIf="message">{{ message }}</div>
+  <div class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <nav class="tabs" aria-label="Seções do sistema">
+    <button type="button" [class.active]="activeSection === 'products'" (click)="activeSection = 'products'">
+      Produtos <span>{{ products.length }}</span>
+    </button>
+    <button type="button" [class.active]="activeSection === 'invoices'" (click)="activeSection = 'invoices'">
+      Notas fiscais <span>{{ invoices.length }}</span>
+    </button>
+  </nav>
+
+  <div class="loading" *ngIf="loading">Carregando dados...</div>
+
+  <section class="workspace" *ngIf="!loading && activeSection === 'products'">
+    <article class="card form-card">
+      <div class="card-heading">
+        <span class="step">01</span>
+        <div>
+          <h2>Novo produto</h2>
+          <p>Informe os dados iniciais do estoque.</p>
+        </div>
+      </div>
+
+      <form [formGroup]="productForm" (ngSubmit)="saveProduct()">
+        <label>
+          Código
+          <input formControlName="code" placeholder="Ex.: PROD-001" autocomplete="off">
+          <small *ngIf="productForm.controls['code'].touched && productForm.controls['code'].invalid">
+            O código é obrigatório.
+          </small>
+        </label>
+        <label>
+          Descrição
+          <input formControlName="description" placeholder="Nome do produto" autocomplete="off">
+          <small *ngIf="productForm.controls['description'].touched && productForm.controls['description'].invalid">
+            A descrição é obrigatória.
+          </small>
+        </label>
+        <label>
+          Saldo inicial
+          <input formControlName="balance" type="number" min="0">
+        </label>
+        <button class="primary" type="submit" [disabled]="savingProduct">
+          {{ savingProduct ? 'Salvando...' : 'Cadastrar produto' }}
+        </button>
+      </form>
+    </article>
+
+    <article class="card list-card">
+      <div class="card-heading compact">
+        <div>
+          <h2>Estoque atual</h2>
+          <p>Saldos atualizados após o fechamento das notas.</p>
+        </div>
+      </div>
+      <div class="empty" *ngIf="products.length === 0">Nenhum produto cadastrado.</div>
+      <div class="table-wrap" *ngIf="products.length > 0">
+        <table>
+          <thead><tr><th>Código</th><th>Descrição</th><th>Saldo</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let product of products; trackBy: trackById">
+              <td><strong>{{ product.code }}</strong></td>
+              <td>{{ product.description }}</td>
+              <td><span class="balance">{{ product.balance }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section class="workspace invoices" *ngIf="!loading && activeSection === 'invoices'">
+    <article class="card form-card">
+      <div class="card-heading">
+        <span class="step">02</span>
+        <div>
+          <h2>Nova nota fiscal</h2>
+          <p>A numeração será gerada automaticamente.</p>
+        </div>
+      </div>
+
+      <form [formGroup]="invoiceForm" (ngSubmit)="saveInvoice()">
+        <div formArrayName="items" class="invoice-items">
+          <div class="invoice-item" *ngFor="let group of invoiceItems.controls; let index = index" [formGroupName]="index">
+            <label>
+              Produto
+              <select formControlName="productId">
+                <option value="">Selecione</option>
+                <option *ngFor="let product of products" [value]="product.id">
+                  {{ product.code }} · {{ product.description }} ({{ product.balance }})
+                </option>
+              </select>
+            </label>
+            <label class="quantity">
+              Quantidade
+              <input formControlName="quantity" type="number" min="1">
+            </label>
+            <button class="icon-button" type="button" title="Remover item" [disabled]="invoiceItems.length === 1" (click)="removeInvoiceItem(index)">
+              ×
+            </button>
+          </div>
+        </div>
+        <button class="link-button" type="button" (click)="addInvoiceItem()">+ Adicionar produto</button>
+        <button class="primary" type="submit" [disabled]="savingInvoice || products.length === 0">
+          {{ savingInvoice ? 'Criando...' : 'Criar nota aberta' }}
+        </button>
+      </form>
+    </article>
+
+    <article class="card list-card">
+      <div class="card-heading compact">
+        <div>
+          <h2>Notas fiscais</h2>
+          <p>Imprimir fecha a nota e atualiza o estoque.</p>
+        </div>
+      </div>
+      <div class="empty" *ngIf="invoices.length === 0">Nenhuma nota fiscal criada.</div>
+      <div class="invoice-list">
+        <article
+          class="invoice-row"
+          [class.expanded]="expandedInvoiceId === invoice.id"
+          *ngFor="let invoice of invoices; trackBy: trackById">
+          <div class="invoice-number">
+            <small>NOTA</small>
+            <strong>#{{ invoice.number | number: '3.0-0' }}</strong>
+          </div>
+          <div class="invoice-summary">
+            <span class="status" [class.closed]="invoice.status === 'Fechada'">{{ invoice.status }}</span>
+            <p>{{ invoice.items.length }} produto(s) · {{ invoice.createdAtUtc | date: 'dd/MM/yyyy HH:mm' }}</p>
+            <small class="last-error" *ngIf="invoice.lastProcessingError">{{ invoice.lastProcessingError }}</small>
+          </div>
+          <div class="invoice-actions">
+            <button
+              class="details-button"
+              type="button"
+              [attr.aria-expanded]="expandedInvoiceId === invoice.id"
+              (click)="toggleInvoiceDetails(invoice.id)">
+              {{ expandedInvoiceId === invoice.id ? 'Ocultar itens' : 'Ver itens' }}
+            </button>
+            <button
+              class="print-button"
+              type="button"
+              [disabled]="invoice.status !== 'Aberta' || processingInvoiceId !== null"
+              (click)="printInvoice(invoice)">
+              <span *ngIf="processingInvoiceId !== invoice.id">Imprimir</span>
+              <span *ngIf="processingInvoiceId === invoice.id" class="processing"><i></i> Processando</span>
+            </button>
+          </div>
+
+          <div class="invoice-details" *ngIf="expandedInvoiceId === invoice.id">
+            <div class="details-heading">
+              <strong>Itens da nota</strong>
+              <span>{{ getInvoiceTotalQuantity(invoice) }} unidade(s)</span>
+            </div>
+            <div class="detail-item" *ngFor="let item of invoice.items">
+              <div>
+                <strong>{{ item.productCode }}</strong>
+                <span>{{ item.productDescription }}</span>
+              </div>
+              <span class="detail-quantity">{{ item.quantity }} un.</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </article>
+  </section>
+</main>
+
+<section class="print-sheet" *ngIf="invoiceForPrint as printable">
+  <div class="print-document">
+    <header class="print-header">
+      <div class="print-brand">
+        <span>K</span>
+        <div><strong>KORP FISCAL</strong><small>Comprovante de emissão</small></div>
+      </div>
+      <div class="print-title">
+        <small>NOTA FISCAL</small>
+        <h1>#{{ printable.number | number: '3.0-0' }}</h1>
+        <span>{{ printable.status }}</span>
+      </div>
+    </header>
+
+    <section class="print-meta">
+      <div><small>Data de emissão</small><strong>{{ printable.createdAtUtc | date: 'dd/MM/yyyy HH:mm' }}</strong></div>
+      <div><small>Data de fechamento</small><strong>{{ printable.closedAtUtc | date: 'dd/MM/yyyy HH:mm' }}</strong></div>
+      <div><small>Total de unidades</small><strong>{{ getInvoiceTotalQuantity(printable) }}</strong></div>
+    </section>
+
+    <div class="print-section-title">Produtos</div>
+    <table class="print-items">
+      <thead><tr><th>Código</th><th>Descrição do produto</th><th>Quantidade</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let item of printable.items">
+          <td><strong>{{ item.productCode }}</strong></td>
+          <td>{{ item.productDescription }}</td>
+          <td>{{ item.quantity }} un.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <footer class="print-footer">
+      <span>Documento demonstrativo do teste técnico Korp.</span>
+      <small>ID: {{ printable.id }}</small>
+    </footer>
+  </div>
+</section>

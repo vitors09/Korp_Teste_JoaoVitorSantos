@@ -1,0 +1,18 @@
+{
+  "/inventory": {
+    "target": "http://localhost:5298",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/inventory": ""
+    }
+  },
+  "/billing": {
+    "target": "http://localhost:5299",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/billing": ""
+    }
+  }
+}
